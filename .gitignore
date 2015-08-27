@@ -3,3 +3,4 @@
 .settings
 target
 src/test/resources/application.yml
+.README.md.html
