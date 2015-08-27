@@ -17,3 +17,4 @@ Make sure ``net.fender.springboot.aws.cloudsearch.CloudSearchConfig`` is added v
 
 TODO
 - there's a bug in splitting JSON in to chunks if the chunk is smaller than 1 doc's JSON
+- add more unit tests
