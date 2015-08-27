@@ -39,7 +39,6 @@ public class CloudSearchConfig {
 	private boolean gzip;
 	private String searchEndpoint;
 	private Region region;
-	private int documentUploadMaxSizeBytes;
 
 	public String getAccessKey() {
 		return accessKey;
@@ -81,14 +80,6 @@ public class CloudSearchConfig {
 		this.region = Region.getRegion(region);
 	}
 
-	public int getDocumentUploadMaxSizeBytes() {
-		return documentUploadMaxSizeBytes;
-	}
-
-	public void setDocumentUploadMaxSizeBytes(int documentUploadMaxSizeBytes) {
-		this.documentUploadMaxSizeBytes = documentUploadMaxSizeBytes;
-	}
-
 	@Bean
 	public AWSCredentials awsCredentials() {
 		return new BasicAWSCredentials(accessKey, secretKey);
@@ -106,8 +97,8 @@ public class CloudSearchConfig {
 				withRegion(region);
 	}
 
-	@Bean
-	public AmazonCloudSearchDomainClients cloudSearchDomainClients(
+	@Bean(name = "cloudSearchDomainClients")
+	public Map<String, AmazonCloudSearchDomainClient> cloudSearchDomainClients(
 			AmazonCloudSearchClient cloudSearchClient, AWSCredentials awsCredentials, ClientConfiguration clientConfig) {
 		DescribeDomainsResult describeDomainsResult = cloudSearchClient.describeDomains();
 		List<DomainStatus> domainStatusList = describeDomainsResult.getDomainStatusList();
@@ -126,20 +117,7 @@ public class CloudSearchConfig {
 						domainStatus.isDeleted());
 			}
 		}
-		return new AmazonCloudSearchDomainClients(domainClients);
-	}
-
-	public static class AmazonCloudSearchDomainClients {
-		private final Map<String, AmazonCloudSearchDomainClient> cloudSearchDomainClients;
-
-		public AmazonCloudSearchDomainClients(Map<String, AmazonCloudSearchDomainClient> cloudSearchDomainClients) {
-			this.cloudSearchDomainClients = cloudSearchDomainClients;
-		}
-
-		public Map<String, AmazonCloudSearchDomainClient> getCloudSearchDomainClients() {
-			return cloudSearchDomainClients;
-		}
-
+		return domainClients;
 	}
 
 }

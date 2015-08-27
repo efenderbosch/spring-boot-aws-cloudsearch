@@ -8,12 +8,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import net.fender.springboot.aws.cloudsearch.CloudSearchConfig.AmazonCloudSearchDomainClients;
+import javax.annotation.Resource;
+
 import net.fender.springboot.aws.cloudsearch.docs.Document;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.amazonaws.services.cloudsearchdomain.AmazonCloudSearchDomainClient;
@@ -34,18 +36,10 @@ public class CloudSearchClient {
 
 	@Autowired
 	private AmazonCloudSearchClient cloudSearchClient;
+	@Resource(lookup = "cloudSearchDomainClients")
 	private Map<String, AmazonCloudSearchDomainClient> cloudSearchDomainClients;
+	@Value("${cloudSearch.documentUploadMaxSizeBytes}")
 	private int documentUploadMaxSizeBytes;
-
-	@Autowired
-	public void setAmazonCloudSearchDomainClients(AmazonCloudSearchDomainClients cloudSearchDomainClients) {
-		this.cloudSearchDomainClients = cloudSearchDomainClients.getCloudSearchDomainClients();
-	}
-
-	@Autowired
-	public void setCloudSearchConfig(CloudSearchConfig cloudSearchConfig) {
-		documentUploadMaxSizeBytes = cloudSearchConfig.getDocumentUploadMaxSizeBytes();
-	}
 
 	public void setDocumentUploadMaxSizeBytes(int documentUploadMaxSizeBytes) {
 		this.documentUploadMaxSizeBytes = documentUploadMaxSizeBytes;
