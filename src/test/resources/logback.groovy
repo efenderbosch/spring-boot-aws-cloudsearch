@@ -4,6 +4,6 @@ appender("CONSOLE", ConsoleAppender) {
   }
 }
 
-logger("test", DEBUG)
+logger("net.fender.springboot.aws.cloudsearch", DEBUG)
 
 root(INFO, ["CONSOLE"])
