@@ -1,0 +1,7 @@
+cloudSearch:
+  accessKey: ####################
+  secretKey: ########################################
+  gzip: true
+  searchEndpoint: search-my-domain-##########################.us-east-1.cloudsearch.amazonaws.com
+  region: us-east-1
+  documentUploadMaxSizeBytes: 5_000_000
