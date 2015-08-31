@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import com.amazonaws.event.ProgressListener;
 import com.amazonaws.services.cloudsearchdomain.AmazonCloudSearchDomainClient;
 import com.amazonaws.services.cloudsearchdomain.model.Hits;
 import com.amazonaws.services.cloudsearchdomain.model.SearchRequest;
@@ -25,6 +26,12 @@ import com.amazonaws.services.cloudsearchdomain.model.SearchResult;
 import com.amazonaws.services.cloudsearchdomain.model.UploadDocumentsRequest;
 import com.amazonaws.services.cloudsearchdomain.model.UploadDocumentsResult;
 import com.amazonaws.services.cloudsearchv2.AmazonCloudSearchClient;
+import com.amazonaws.services.cloudsearchv2.model.DefineIndexFieldRequest;
+import com.amazonaws.services.cloudsearchv2.model.DefineIndexFieldResult;
+import com.amazonaws.services.cloudsearchv2.model.DeleteIndexFieldRequest;
+import com.amazonaws.services.cloudsearchv2.model.DeleteIndexFieldResult;
+import com.amazonaws.services.cloudsearchv2.model.DescribeDomainsRequest;
+import com.amazonaws.services.cloudsearchv2.model.DescribeDomainsResult;
 import com.amazonaws.services.cloudsearchv2.model.IndexDocumentsRequest;
 import com.amazonaws.services.cloudsearchv2.model.IndexDocumentsResult;
 import com.amazonaws.util.StringInputStream;
@@ -34,19 +41,40 @@ public class CloudSearchClient {
 
 	private static final Logger log = LoggerFactory.getLogger(CloudSearchClient.class);
 
+	public static final String NO_FIELDS = "_no_fields";
+	public static final String INITIAL_CURSOR = "initial";
+
 	@Autowired
 	private AmazonCloudSearchClient cloudSearchClient;
 	@Resource(lookup = "cloudSearchDomainClients")
 	private Map<String, AmazonCloudSearchDomainClient> cloudSearchDomainClients;
 	@Value("${cloudSearch.documentUploadMaxSizeBytes}")
 	private int documentUploadMaxSizeBytes;
+	private ProgressListener progressListener;
+
+	public void setProgressListener(ProgressListener progressListener) {
+		this.progressListener = progressListener;
+	}
 
 	public void setDocumentUploadMaxSizeBytes(int documentUploadMaxSizeBytes) {
 		this.documentUploadMaxSizeBytes = documentUploadMaxSizeBytes;
 	}
 
-	public IndexDocumentsResult indexDocuments(IndexDocumentsRequest indexDocumentsRequest) {
-		return cloudSearchClient.indexDocuments(indexDocumentsRequest);
+	public IndexDocumentsResult indexDocuments(String domainName) {
+		return cloudSearchClient.indexDocuments(new IndexDocumentsRequest().withDomainName(domainName));
+	}
+
+	public DefineIndexFieldResult defineIndexField(DefineIndexFieldRequest defineIndexFieldRequest) {
+		return cloudSearchClient.defineIndexField(defineIndexFieldRequest);
+	}
+
+	public DeleteIndexFieldResult deleteIndexField(DeleteIndexFieldRequest deleteIndexFieldRequest) {
+		return cloudSearchClient.deleteIndexField(deleteIndexFieldRequest);
+	}
+
+	public DescribeDomainsResult describeDomain(String domainName) {
+		DescribeDomainsRequest describeDomainsRequest = new DescribeDomainsRequest().withDomainNames(domainName);
+		return cloudSearchClient.describeDomains(describeDomainsRequest);
 	}
 
 	public List<UploadDocumentsResult> uploadDocuments(String domainName, List<Document> docs) {
@@ -75,6 +103,9 @@ public class CloudSearchClient {
 						withDocuments(documents). //
 						withContentLength((long) part.length()). //
 						withContentType(Applicationjson);
+				if (progressListener != null) {
+					uploadDocumentsRequest.setGeneralProgressListener(progressListener);
+				}
 				uploadDocumentRequests.add(uploadDocumentsRequest);
 			} catch (IOException e) {
 				log.warn("this should never happen", e);
@@ -136,6 +167,9 @@ public class CloudSearchClient {
 		AmazonCloudSearchDomainClient domainClient = cloudSearchDomainClients.get(domainName);
 		if (domainClient == null) {
 			throw new IllegalArgumentException(domainName + " not known");
+		}
+		if (progressListener != null) {
+			searchRequest.setGeneralProgressListener(progressListener);
 		}
 		List<SearchResult> searchResults = new ArrayList<>();
 		int found = 0;
