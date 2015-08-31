@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Future;
 
 import javax.annotation.Resource;
 
@@ -14,18 +15,17 @@ import net.fender.springboot.aws.cloudsearch.docs.Document;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.amazonaws.event.ProgressListener;
-import com.amazonaws.services.cloudsearchdomain.AmazonCloudSearchDomainClient;
+import com.amazonaws.services.cloudsearchdomain.AmazonCloudSearchDomainAsyncClient;
 import com.amazonaws.services.cloudsearchdomain.model.Hits;
 import com.amazonaws.services.cloudsearchdomain.model.SearchRequest;
 import com.amazonaws.services.cloudsearchdomain.model.SearchResult;
 import com.amazonaws.services.cloudsearchdomain.model.UploadDocumentsRequest;
 import com.amazonaws.services.cloudsearchdomain.model.UploadDocumentsResult;
-import com.amazonaws.services.cloudsearchv2.AmazonCloudSearchClient;
+import com.amazonaws.services.cloudsearchv2.AmazonCloudSearchAsync;
 import com.amazonaws.services.cloudsearchv2.model.DefineIndexFieldRequest;
 import com.amazonaws.services.cloudsearchv2.model.DefineIndexFieldResult;
 import com.amazonaws.services.cloudsearchv2.model.DeleteIndexFieldRequest;
@@ -44,10 +44,10 @@ public class CloudSearchClient {
 	public static final String NO_FIELDS = "_no_fields";
 	public static final String INITIAL_CURSOR = "initial";
 
-	@Autowired
-	private AmazonCloudSearchClient cloudSearchClient;
-	@Resource(lookup = "cloudSearchDomainClients")
-	private Map<String, AmazonCloudSearchDomainClient> cloudSearchDomainClients;
+	@Resource(lookup = "awsCloudSearchAsyncClient")
+	private AmazonCloudSearchAsync cloudSearchAsyncClient;
+	@Resource(lookup = "cloudSearchDomainAsyncClients")
+	private Map<String, AmazonCloudSearchDomainAsyncClient> cloudSearchDomainAsyncClients;
 	@Value("${cloudSearch.documentUploadMaxSizeBytes}")
 	private int documentUploadMaxSizeBytes;
 	private ProgressListener progressListener;
@@ -61,27 +61,27 @@ public class CloudSearchClient {
 	}
 
 	public IndexDocumentsResult indexDocuments(String domainName) {
-		return cloudSearchClient.indexDocuments(new IndexDocumentsRequest().withDomainName(domainName));
+		return cloudSearchAsyncClient.indexDocuments(new IndexDocumentsRequest().withDomainName(domainName));
 	}
 
 	public DefineIndexFieldResult defineIndexField(DefineIndexFieldRequest defineIndexFieldRequest) {
-		return cloudSearchClient.defineIndexField(defineIndexFieldRequest);
+		return cloudSearchAsyncClient.defineIndexField(defineIndexFieldRequest);
 	}
 
 	public DeleteIndexFieldResult deleteIndexField(DeleteIndexFieldRequest deleteIndexFieldRequest) {
-		return cloudSearchClient.deleteIndexField(deleteIndexFieldRequest);
+		return cloudSearchAsyncClient.deleteIndexField(deleteIndexFieldRequest);
 	}
 
 	public DescribeDomainsResult describeDomain(String domainName) {
 		DescribeDomainsRequest describeDomainsRequest = new DescribeDomainsRequest().withDomainNames(domainName);
-		return cloudSearchClient.describeDomains(describeDomainsRequest);
+		return cloudSearchAsyncClient.describeDomains(describeDomainsRequest);
 	}
 
 	public List<UploadDocumentsResult> uploadDocuments(String domainName, List<Document> docs) {
 		if (docs.size() == 0) {
 			return Collections.emptyList();
 		}
-		AmazonCloudSearchDomainClient domainClient = cloudSearchDomainClients.get(domainName);
+		AmazonCloudSearchDomainAsyncClient domainClient = cloudSearchDomainAsyncClients.get(domainName);
 		if (domainClient == null) {
 			throw new IllegalArgumentException(domainName + " not known");
 		}
@@ -89,6 +89,24 @@ public class CloudSearchClient {
 		List<UploadDocumentsResult> uploadDocumentsResults = new ArrayList<>(uploadDocumentsRequests.size());
 		for (UploadDocumentsRequest uploadDocumentsRequest : uploadDocumentsRequests) {
 			UploadDocumentsResult uploadDocumentsResult = domainClient.uploadDocuments(uploadDocumentsRequest);
+			uploadDocumentsResults.add(uploadDocumentsResult);
+		}
+		return uploadDocumentsResults;
+	}
+
+	public List<Future<UploadDocumentsResult>> uploadDocumentsAsync(String domainName, List<Document> docs) {
+		if (docs.size() == 0) {
+			return Collections.emptyList();
+		}
+		AmazonCloudSearchDomainAsyncClient domainClient = cloudSearchDomainAsyncClients.get(domainName);
+		if (domainClient == null) {
+			throw new IllegalArgumentException(domainName + " not known");
+		}
+		List<UploadDocumentsRequest> uploadDocumentsRequests = createUploadDocumentsRequest(docs);
+		List<Future<UploadDocumentsResult>> uploadDocumentsResults = new ArrayList<>(uploadDocumentsRequests.size());
+		for (UploadDocumentsRequest uploadDocumentsRequest : uploadDocumentsRequests) {
+			Future<UploadDocumentsResult> uploadDocumentsResult = domainClient
+					.uploadDocumentsAsync(uploadDocumentsRequest);
 			uploadDocumentsResults.add(uploadDocumentsResult);
 		}
 		return uploadDocumentsResults;
@@ -164,7 +182,7 @@ public class CloudSearchClient {
 	}
 
 	public List<SearchResult> search(String domainName, SearchRequest searchRequest) {
-		AmazonCloudSearchDomainClient domainClient = cloudSearchDomainClients.get(domainName);
+		AmazonCloudSearchDomainAsyncClient domainClient = cloudSearchDomainAsyncClients.get(domainName);
 		if (domainClient == null) {
 			throw new IllegalArgumentException(domainName + " not known");
 		}
