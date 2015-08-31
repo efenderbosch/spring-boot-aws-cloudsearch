@@ -8,8 +8,11 @@ import java.util.UUID;
 
 import net.fender.springboot.aws.cloudsearch.docs.AddDocument.AddDocumentSerializer;
 
+import com.amazonaws.util.json.JSONObject;
+import com.amazonaws.util.json.Jackson;
 import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
@@ -18,6 +21,7 @@ import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 public class AddDocument extends Document {
 
 	private Map<String, Object> fields = new HashMap<>();
+	private Object pojo;
 
 	public AddDocument() {
 		super();
@@ -35,7 +39,23 @@ public class AddDocument extends Document {
 		fields.put(key, value);
 	}
 
+	public void setPojo(Object pojo) {
+		this.pojo = new JSONObject(pojo);
+	}
+
+	@SuppressWarnings("hiding")
+	public AddDocument withPojo(Object pojo) {
+		this.pojo = pojo;
+		return this;
+	}
+
+	public Object getPojo() {
+		return pojo;
+	}
+
 	public static class AddDocumentSerializer extends StdSerializer<AddDocument> {
+
+		private static final ObjectMapper OBJECT_MAPPER = Jackson.getObjectMapper();
 
 		private static final String FIELDS = "fields";
 		private static final String ADD = "add";
@@ -50,11 +70,16 @@ public class AddDocument extends Document {
 			jgen.writeStartObject();
 			jgen.writeStringField(TYPE, ADD);
 			jgen.writeStringField(ID, doc.getId());
-			jgen.writeObjectFieldStart(FIELDS);
-			for (Entry<String, Object> field : doc.fields.entrySet()) {
-				jgen.writeObjectField(field.getKey(), field.getValue());
+			if (doc.getPojo() != null) {
+				jgen.writeRaw(",\"fields\"");
+				jgen.writeRawValue(OBJECT_MAPPER.writeValueAsString(doc.getPojo()));
+			} else {
+				jgen.writeObjectFieldStart(FIELDS);
+				for (Entry<String, Object> field : doc.fields.entrySet()) {
+					jgen.writeObjectField(field.getKey(), field.getValue());
+				}
+				jgen.writeEndObject();
 			}
-			jgen.writeEndObject();
 			jgen.writeEndObject();
 		}
 	}
