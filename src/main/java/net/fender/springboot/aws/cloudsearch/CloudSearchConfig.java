@@ -36,9 +36,9 @@ public class CloudSearchConfig {
 
 	private String accessKey;
 	private String secretKey;
-	private boolean gzip;
 	private String searchEndpoint;
 	private Region region;
+	private ClientConfiguration client = new ClientConfiguration();
 
 	public String getAccessKey() {
 		return accessKey;
@@ -54,14 +54,6 @@ public class CloudSearchConfig {
 
 	public void setSecretKey(String secretKey) {
 		this.secretKey = secretKey;
-	}
-
-	public boolean isGzip() {
-		return gzip;
-	}
-
-	public void setGzip(boolean gzip) {
-		this.gzip = gzip;
 	}
 
 	public String getSearchEndpoint() {
@@ -80,26 +72,29 @@ public class CloudSearchConfig {
 		this.region = Region.getRegion(region);
 	}
 
+	public ClientConfiguration getClient() {
+		return client;
+	}
+
+	public void setClient(ClientConfiguration client) {
+		this.client = client;
+	}
+
 	@Bean
 	public AWSCredentials awsCredentials() {
 		return new BasicAWSCredentials(accessKey, secretKey);
 	}
 
 	@Bean
-	public ClientConfiguration clientConfig() {
-		return new ClientConfiguration().withGzip(gzip);
-	}
-
-	@Bean
-	public AmazonCloudSearchClient awsCloudSearchClient(AWSCredentials awsCredentials, ClientConfiguration clientConfig) {
-		return new AmazonCloudSearchClient(awsCredentials, clientConfig). //
+	public AmazonCloudSearchClient awsCloudSearchClient(AWSCredentials awsCredentials) {
+		return new AmazonCloudSearchClient(awsCredentials, client). //
 				withEndpoint(searchEndpoint). //
 				withRegion(region);
 	}
 
 	@Bean(name = "cloudSearchDomainClients")
 	public Map<String, AmazonCloudSearchDomainClient> cloudSearchDomainClients(
-			AmazonCloudSearchClient cloudSearchClient, AWSCredentials awsCredentials, ClientConfiguration clientConfig) {
+			AmazonCloudSearchClient cloudSearchClient, AWSCredentials awsCredentials) {
 		DescribeDomainsResult describeDomainsResult = cloudSearchClient.describeDomains();
 		List<DomainStatus> domainStatusList = describeDomainsResult.getDomainStatusList();
 		Map<String, AmazonCloudSearchDomainClient> domainClients = new HashMap<>(domainStatusList.size());
@@ -109,8 +104,8 @@ public class CloudSearchConfig {
 			if (domainStatus.isCreated() && !domainStatus.isDeleted()) {
 				log.info("creating AmazonCloudSearchDomainClient for {} domain", domainName);
 				ServiceEndpoint serviceEndpoint = domainStatus.getDocService();
-				AmazonCloudSearchDomainClient domainClient = new AmazonCloudSearchDomainClient(awsCredentials,
-						clientConfig).withEndpoint(serviceEndpoint.getEndpoint());
+				AmazonCloudSearchDomainClient domainClient = new AmazonCloudSearchDomainClient(awsCredentials, client)
+						.withEndpoint(serviceEndpoint.getEndpoint());
 				domainClients.put(domainName, domainClient);
 			} else {
 				log.info("skipping domain {}: created = {}, deleted = {}", domainName, domainStatus.isCreated(),
