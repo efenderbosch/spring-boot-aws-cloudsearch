@@ -14,10 +14,13 @@ import org.springframework.context.annotation.Configuration;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
-import com.amazonaws.services.cloudsearchdomain.AmazonCloudSearchDomainClient;
+import com.amazonaws.services.cloudsearchdomain.AmazonCloudSearchDomainAsyncClient;
+import com.amazonaws.services.cloudsearchv2.AmazonCloudSearchAsync;
+import com.amazonaws.services.cloudsearchv2.AmazonCloudSearchAsyncClient;
 import com.amazonaws.services.cloudsearchv2.AmazonCloudSearchClient;
 import com.amazonaws.services.cloudsearchv2.model.DescribeDomainsResult;
 import com.amazonaws.services.cloudsearchv2.model.DomainStatus;
@@ -81,31 +84,45 @@ public class CloudSearchConfig {
 	}
 
 	@Bean
-	public AWSCredentials awsCredentials() {
-		return new BasicAWSCredentials(accessKey, secretKey);
+	public AWSCredentialsProvider awsCloudSearchCredentialsProvider() {
+		AWSCredentialsProvider awsCredentialsProvider = new AWSCredentialsProvider() {
+			private AWSCredentials awsCredentials = new BasicAWSCredentials(accessKey, secretKey);
+
+			@Override
+			public AWSCredentials getCredentials() {
+				return awsCredentials;
+			}
+
+			@Override
+			public void refresh() {
+				awsCredentials = new BasicAWSCredentials(accessKey, secretKey);
+			}
+		};
+		return awsCredentialsProvider;
 	}
 
 	@Bean
-	public AmazonCloudSearchClient awsCloudSearchClient(AWSCredentials awsCredentials) {
-		return new AmazonCloudSearchClient(awsCredentials, client). //
+	public AmazonCloudSearchAsync awsCloudSearchAsyncClient(AWSCredentialsProvider awsCredentialsProvider) {
+		return new AmazonCloudSearchAsyncClient(awsCredentialsProvider, client). //
 				withEndpoint(searchEndpoint). //
 				withRegion(region);
 	}
 
-	@Bean(name = "cloudSearchDomainClients")
-	public Map<String, AmazonCloudSearchDomainClient> cloudSearchDomainClients(
-			AmazonCloudSearchClient cloudSearchClient, AWSCredentials awsCredentials) {
+	@Bean
+	public Map<String, AmazonCloudSearchDomainAsyncClient> cloudSearchDomainAsyncClients(
+			AmazonCloudSearchClient cloudSearchClient, AWSCredentialsProvider awsCredentialsProvider) {
 		DescribeDomainsResult describeDomainsResult = cloudSearchClient.describeDomains();
 		List<DomainStatus> domainStatusList = describeDomainsResult.getDomainStatusList();
-		Map<String, AmazonCloudSearchDomainClient> domainClients = new HashMap<>(domainStatusList.size());
+		Map<String, AmazonCloudSearchDomainAsyncClient> domainClients = new HashMap<>(domainStatusList.size());
 		for (DomainStatus domainStatus : domainStatusList) {
 			log.debug("domainStatus: {}", domainStatus);
 			String domainName = domainStatus.getDomainName();
 			if (domainStatus.isCreated() && !domainStatus.isDeleted()) {
 				log.info("creating AmazonCloudSearchDomainClient for {} domain", domainName);
 				ServiceEndpoint serviceEndpoint = domainStatus.getDocService();
-				AmazonCloudSearchDomainClient domainClient = new AmazonCloudSearchDomainClient(awsCredentials, client)
-						.withEndpoint(serviceEndpoint.getEndpoint());
+				AmazonCloudSearchDomainAsyncClient domainClient = new AmazonCloudSearchDomainAsyncClient(
+						awsCredentialsProvider, client)
+				.withEndpoint(serviceEndpoint.getEndpoint());
 				domainClients.put(domainName, domainClient);
 			} else {
 				log.info("skipping domain {}: created = {}, deleted = {}", domainName, domainStatus.isCreated(),
