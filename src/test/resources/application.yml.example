@@ -1,7 +1,14 @@
 cloudSearch:
   accessKey: ####################
+  secretKey: Pum/U9EXpdvDRbLKzYnCG1I3N8vynPGSB90p3rdK
   secretKey: ########################################
-  gzip: true
   searchEndpoint: search-my-domain-##########################.us-east-1.cloudsearch.amazonaws.com
   region: us-east-1
-  documentUploadMaxSizeBytes: 5_000_000
+  documentUploadMaxSizeBytes: 1_000_000
+  client:
+    # see com.amazonaws.ClientConfiguration
+    useGzip: true
+    # up to this many connections will be used in parallel with async methods
+    maxConnections: 4
+    # 180_000 = 3 * 60 * 1000 = 3 minutes
+    socketTimeout: 180_000
